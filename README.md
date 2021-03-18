@@ -19,7 +19,7 @@ Improve your RPA python code with wrapper 🤯
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
 
 ```bash
-pip install autopytic==0.1
+pip install autopytic
 ```
 In  your main python script localization create file named .pytic with:
 
