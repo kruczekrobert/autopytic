@@ -104,6 +104,20 @@ ERROR_RAISE=true # Wrapper will return exception after a failed action
  PASS | 2021-03-18 20:01:19.789445 | get_page | (<__main__.Robot object at 0x105d20460>, 'https://www.google.pl/') | Send requests to get scrapping page | 307.56616592407227ms |  -  
 ```
 
+# Auto-documentation
+To make auto-documentation file add to the end of the script:
+
+```python
+Wrapper.build_docs()
+```
+## Output
+
+```text
+Step 0 use function say_hello to do Say hello
+Step 1 use function get_page to do Send requests to get scrapping page
+Step 2 use function process_and_response to do Try to scrap something and return value
+```
+
 
 
 
