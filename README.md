@@ -20,6 +20,7 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
 
 ```bash
 pip install autopytic
+pip install python-dotenv
 ```
 In  your main python script localization create file named .pytic with:
 
@@ -35,6 +36,9 @@ SMTP_PORT=
 SENDER_EMAIL=
 SENDER_PASS=
 RECIVER_EMAIL=
+
+# Coverage Settings
+EXCLUDE_VENV=/vev
 ```
 
 # Usage example
@@ -91,7 +95,16 @@ ERROR_RAISE=false # Wrapper will not return any exception after a failed action 
 ERROR_RAISE=true # Wrapper will return exception after a failed action
 ```
 
-![alt text](https://scontent-frt3-1.xx.fbcdn.net/v/t1.15752-9/162488260_1076633426139679_6936695617478056847_n.png?_nc_cat=108&ccb=1-3&_nc_sid=ae9488&_nc_ohc=EDhQ9h8iF1QAX_HLXAy&_nc_ht=scontent-frt3-1.xx&oh=0a331e7f5f3e740d34c5f0af51f86f48&oe=60791311)
+![alt text](https://scontent-frx5-1.xx.fbcdn.net/v/t1.15752-9/162576374_738313917056023_2227397670571772516_n.png?_nc_cat=105&ccb=1-3&_nc_sid=ae9488&_nc_ohc=eduEud5TNk0AX--WKMF&_nc_ht=scontent-frx5-1.xx&oh=cf67ba50d1cc8d78ad4625f86269a92f&oe=607A2BCC)
+
+## Loop handling
+If you want to read the code based on loops easier, use in_loop (default false):
+```python
+@Wrapper.register_event(logfile=logfile, description="Say hello", in_loop=True)
+def say_hello():
+        return 'hello'
+```
+![alt text](https://scontent-frx5-1.xx.fbcdn.net/v/t1.15752-9/162423911_3598383523622520_6294617938623607163_n.png?_nc_cat=111&ccb=1-3&_nc_sid=ae9488&_nc_ohc=HzMRXPeT1TIAX-10_hh&_nc_ht=scontent-frx5-1.xx&oh=c1e75260535233ec5ec1f933d4d2cff2&oe=607A2DE5)
 
 
 # Email reports
@@ -117,6 +130,15 @@ Step 0 use function say_hello to do Say hello
 Step 1 use function get_page to do Send requests to get scrapping page
 Step 2 use function process_and_response to do Try to scrap something and return value
 ```
+
+# Code coverage
+To check code coverage use in main directory
+```bash
+python3 -m autopytic coverage
+```
+
+## Output:
+![alt text](https://scontent-frt3-2.xx.fbcdn.net/v/t1.15752-9/162233595_268040471612338_146232121911129468_n.png?_nc_cat=101&ccb=1-3&_nc_sid=ae9488&_nc_ohc=uoOxK7XMKAYAX96VyiO&_nc_ht=scontent-frt3-2.xx&oh=ca5b27d2fd0479338889d713e0927657&oe=6055A9BF)
 
 
 

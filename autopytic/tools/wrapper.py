@@ -1,5 +1,5 @@
 import inspect
-import os
+import os, glob
 from pathlib import Path  # Python 3.6
 
 from dotenv import load_dotenv
@@ -40,9 +40,9 @@ class Wrapper:
     counter = 0 
 
     @staticmethod
-    def log(logfile, func_name, args, description, timming, trace, status):
+    def log(logfile, func_name, args, kwargs, description, timming, trace, status):
         with open(logfile, "a") as log:
-            log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {description} | {timming}ms | {trace} \n')
+            log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {kwargs} | {description} | {timming}ms | {trace} \n')
 
 
     @staticmethod
@@ -70,7 +70,7 @@ class Wrapper:
         return Wrapper.events
 
     @staticmethod
-    def register_event(description, logfile):
+    def register_event(description, logfile, in_loop=False):
         def decorator(function):
             def wrapper(*args, **kwargs):
                 Wrapper.events.append(Event(function, description, Wrapper.counter))
@@ -81,20 +81,32 @@ class Wrapper:
                     result = function(*args, **kwargs)
                     t2 = time.time()
                     if os.environ.get("DEBUG_MODE") == "true":
-                        print(f"{bcolors.WARNING}[DEBUG MODE] {bcolors.ENDC}{description}{bcolors.OKGREEN} [✓] {bcolors.ENDC} | {function.__name__}{args} ")
+                        if not in_loop:
+                            print(f"{bcolors.WARNING}[DEBUG MODE] {bcolors.ENDC}{description}{bcolors.OKGREEN} [✓] {bcolors.ENDC} | {function.__name__}{args}{kwargs} ")
+                        else:
+                            print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.OKCYAN} [LOOP] {bcolors.ENDC}{description}{bcolors.OKGREEN} [✓] {bcolors.ENDC} | {function.__name__}{args}{kwargs} ")
                     else:
-                        print(f"{bcolors.OKBLUE} [ROBOT]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
-                    Wrapper.log(logfile, function.__name__, args, description, (t2 - t1) * 1000, " - ", "PASS")
+                        if not in_loop:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
+                        else:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [LOOP]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
+                    Wrapper.log(logfile, function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
                 except Exception as e:
                     if os.environ.get("DEBUG_MODE") == "true":
-                        print(f"{bcolors.WARNING}[DEBUG MODE] {bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC} | {function.__name__}{args}, {str(e)}")
+                        if not in_loop:
+                            print(f"{bcolors.WARNING}[DEBUG MODE] {bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC} | {function.__name__}{args}{kwargs}, {str(e)}")
+                        else:
+                            print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.OKCYAN} [LOOP] {bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC} | {function.__name__}{args}{kwargs}, {str(e)}")
                     else:
-                        print(f"{bcolors.OKBLUE} [ROBOT]{bcolors.ENDC} {description}{bcolors.FAIL} [x] {bcolors.ENDC}")
+                        if not in_loop:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.ENDC} {description}{bcolors.FAIL} [x] {bcolors.ENDC}")
+                        else:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [LOOP]{bcolors.ENDC} {description}{bcolors.FAIL} [x] {bcolors.ENDC}")
                     if os.environ.get("SEND_EXCEPTIONS") == "true":
                         Wrapper.send_mail_with_exception(logfile, str(e), "ROBOT EXCEPTION", description)
                     if os.environ.get("ERROR_RAISE") == "true":
                         raise Exception(str(e))
-                    Wrapper.log(logfile, function.__name__, args, description, " - ", str(e), "FAIL")
+                    Wrapper.log(logfile, function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
                 return result
             return wrapper
         return decorator
