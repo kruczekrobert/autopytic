@@ -9,7 +9,9 @@ Improve your RPA python code with wrapper 🤯
 - Send email notifications on exception
 - Auto-timmings
 - Auto-logging 
-- Auto-documentation
+- Auto-documentation code after every robot end
+- Auto-progress with recalculation on-the-fly
+- Auto-update robot status on management system using your own REST-API
 ...
 ```
 
@@ -21,24 +23,57 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
 ```bash
 pip install autopytic
 pip install python-dotenv
+pip install requests
 ```
 In  your main python script localization create file named .pytic with:
 
 ```bash
 # Settings
+
+# Turn on-off debug mode
 DEBUG_MODE=false
-ERROR_RAISE=false
+# Turn on-off error raise after exception
+ERROR_RAISE=false 
 
 # Email Settings
+
+# Turn on-off send email after exception with log file
 SEND_EXCEPTIONS=false
+# SMTP HOST ADRESS
 SMTP_HOST=
+# SMTP PORT
 SMTP_PORT=
+# SMTP SENDER EMAIL
 SENDER_EMAIL=
+# SMTP SENDER EMAIL PASSWORD
 SENDER_PASS=
+# List of email addresses to which messages are sent :: separated by comma
 RECIVER_EMAIL=
 
 # Coverage Settings
-EXCLUDE_VENV=/vev
+
+# Exclude given paths from code coverage (example ./venv):: separated by comma
+EXCLUDE_VENV=
+
+# Status Settings
+
+# Default script execute first time in ms (does not need to be edited)
+DEFAULT_EXECUTE_TIME=1000000000
+# Address to which the response with the robot's status and progress is to be sent
+RESPONSE_URL=
+# Response refresh rate in ms
+# If the robot is fast, it is recommended to lower the rate to indicate status other than 0-100
+STATUS_REFRESH_RATE=0.1
+# Active status name for response
+STATUS_ACTIVE=Aktywny
+# Completed status name for response
+STATUS_COMPLETED=Zakonczony
+# Error status name for response
+STATUS_ERROR=Krytyczny
+# Returning together with the status of the place where the robot is located
+STATUS_WITH_STATE=false
+# This form is helpful for previewing progress in the console :: Turn on-off
+STATUS_PRINTER=false
 ```
 
 # Usage example
@@ -46,6 +81,8 @@ EXCLUDE_VENV=/vev
 ```python
 from autopytic.tools.wrapper import Wrapper
 import requests
+import time
+from random import randint
 
 logfile = "log.txt"
 
@@ -55,25 +92,30 @@ class Robot:
     @Wrapper.register_event(logfile=logfile, description="Send requests to get scrapping page")
     def get_page(self, url):
         r = requests.get(url)
-        self.process_and_response(r)
-
-    @Wrapper.register_event(logfile=logfile, description="Try to scrap something and return value")
-    def process_and_response(self, request):
-        ## some processing
-        return request.status_code
+        return r
 
     @Wrapper.register_event(logfile=logfile, description="Say hello")
     def say_hello(self):
-        return 'hello'
+        r = self.get_page("http://34.76.134.95:8080/api/customer_sme/1")
+        return r
 
+    @Wrapper.register_event(logfile=logfile, description="Final Run robot method", start=True)
     def run(self):
-        self.say_hello()
-        self.get_page("https://www.google.pl/")
+        self.fetch_from_site()
 
+    @Wrapper.register_event(logfile=logfile, description="Final End robot method", end=True)
+    def end(self):
+        pass
+
+    @Wrapper.register_event(logfile=logfile, description='Fetch something from site')
+    def fetch_from_site(self):
+        r = self.say_hello()
+        return r
 
 
 r = Robot()
 r.run()
+r.end()
 ```
 
 # Console output
@@ -98,7 +140,7 @@ ERROR_RAISE=true # Wrapper will return exception after a failed action
 ![alt text](https://scontent-frx5-1.xx.fbcdn.net/v/t1.15752-9/162576374_738313917056023_2227397670571772516_n.png?_nc_cat=105&ccb=1-3&_nc_sid=ae9488&_nc_ohc=eduEud5TNk0AX--WKMF&_nc_ht=scontent-frx5-1.xx&oh=cf67ba50d1cc8d78ad4625f86269a92f&oe=607A2BCC)
 
 ## Loop handling
-If you want to read the code based on loops easier, use in_loop (default false):
+If you want to read the code based on loops easier, use in_loop (default false), to avoid too much spam in the documentation, the display loops are slightly shortened:
 ```python
 @Wrapper.register_event(logfile=logfile, description="Say hello", in_loop=True)
 def say_hello():
@@ -118,17 +160,16 @@ def say_hello():
 ```
 
 # Auto-documentation
-To make auto-documentation file add to the end of the script:
-
-```python
-Wrapper.build_docs()
-```
+The code is automatically documented after each work completion and put into the docs.txt file
 ## Output
 
 ```text
-Step 0 use function say_hello to do Say hello
-Step 1 use function get_page to do Send requests to get scrapping page
-Step 2 use function process_and_response to do Try to scrap something and return value
+Step 0 -> use function run to do Final Run robot method
+Step 1 -> use function fetch_from_site to do Fetch something from site
+Step 2 -> use function say_hello to do Say hello
+Step 3 -> use function get_page to do Send requests to get scrapping page
+Step 4 -> use function end to do Final End robot method
+
 ```
 
 # Code coverage
@@ -136,9 +177,28 @@ To check code coverage use in main directory
 ```bash
 python3 -m autopytic coverage
 ```
+![alt text](https://scontent-frx5-1.xx.fbcdn.net/v/t1.15752-9/164395601_826109344641414_6244449682530667881_n.png?_nc_cat=111&ccb=1-3&_nc_sid=ae9488&_nc_ohc=Y61eKwbXd6QAX_ZUyFd&_nc_ht=scontent-frx5-1.xx&oh=d23b2418a8b88a48a0a2954449b76895&oe=607F703B)
 
-## Output:
-![alt text](https://scontent-frt3-2.xx.fbcdn.net/v/t1.15752-9/162233595_268040471612338_146232121911129468_n.png?_nc_cat=101&ccb=1-3&_nc_sid=ae9488&_nc_ohc=uoOxK7XMKAYAX96VyiO&_nc_ht=scontent-frt3-2.xx&oh=ca5b27d2fd0479338889d713e0927657&oe=6055A9BF)
+# VisualStudio Code Snippet
+In order not to focus on writing it every time, it is worth adding a snippet to your IDE as in this case:
+```json
+	"register_event": {
+		"prefix": "register",
+		"body": [
+			"@Wrapper.register_event(logfile=logfile, description='$1')"
+		],
+		"description": "Register event"
+	}
+```
+
+![alt text](https://scontent-frt3-1.xx.fbcdn.net/v/t1.15752-9/164674548_784424118854973_357628764616796429_n.png?_nc_cat=108&ccb=1-3&_nc_sid=ae9488&_nc_ohc=L38QmFfZUiwAX8jErDQ&_nc_ht=scontent-frt3-1.xx&oh=46ab422716a8d34d4817683fa58c06f1&oe=607FA96E)
+
+
+![alt text](https://scontent-frt3-2.xx.fbcdn.net/v/t1.15752-9/164489503_168141625135466_263825998897416945_n.png?_nc_cat=103&ccb=1-3&_nc_sid=ae9488&_nc_ohc=DgPw2WAC9nwAX8ejhqE&_nc_ht=scontent-frt3-2.xx&oh=1fd939672ba7e8d7b55aea7b22e5b926&oe=607FABE3)
+
+
+
+
 
 
 

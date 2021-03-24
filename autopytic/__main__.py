@@ -18,15 +18,24 @@ def _check_file_coverage(f, lines):
             else:
                 print(f'{bcolors.OKGREEN}[PASS] {bcolors.ENDC}{f} line:{i} {line.strip()[:-1].replace("def ", "")}')
                 wrapper_count +=1
+    if wrapper_count and def_count:
+        return round((wrapper_count / def_count) * 100, 2)
+    else:
+        return round(0)
 
-    return round((wrapper_count / def_count) * 100, 2)
 
+def _no_exclude(f):
+    no_check = os.environ.get("EXCLUDE_VENV").split(",")
+    for nc in no_check:
+        if nc in f:
+            return False
+    return True
 
 def _check_code_coverate():
     files = [os.path.join(path, name) for path, subdirs, files in os.walk(".") for name in files]
     file_cov = []
     for f in files:
-        if os.environ.get("EXCLUDE_VENV") not in f and f[-3:] == ".py":
+        if _no_exclude(f) and f[-3:] == ".py":
             with open(f, 'r') as cov_file:
                 lines = cov_file.readlines()
                 fc = _check_file_coverage(f, lines)
