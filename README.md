@@ -96,7 +96,7 @@ class Robot:
 
     @Wrapper.register_event(logfile=logfile, description="Say hello")
     def say_hello(self):
-        r = self.get_page("http://34.76.134.95:8080/api/customer_sme/1")
+        r = self.get_page("http://google.pl")
         return r
 
     @Wrapper.register_event(logfile=logfile, description="Final Run robot method", start=True)
