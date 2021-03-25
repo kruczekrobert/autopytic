@@ -79,43 +79,41 @@ STATUS_PRINTER=false
 # Usage example
 
 ```python
-from autopytic.tools.wrapper import Wrapper
-import requests
 import time
-from random import randint
+from autopytic.tools.wrapper import Wrapper
 
-logfile = "log.txt"
+wrapper = Wrapper()
+
+logfile = 'log.txt'
+wrapper.robot_path = './robots/1/'
 
 
 class Robot:
-
-    @Wrapper.register_event(logfile=logfile, description="Send requests to get scrapping page")
-    def get_page(self, url):
-        r = requests.get(url)
-        return r
-
-    @Wrapper.register_event(logfile=logfile, description="Say hello")
-    def say_hello(self):
-        r = self.get_page("http://34.76.134.95:8080/api/customer_sme/1")
-        return r
-
-    @Wrapper.register_event(logfile=logfile, description="Final Run robot method", start=True)
-    def run(self):
-        self.fetch_from_site()
-
-    @Wrapper.register_event(logfile=logfile, description="Final End robot method", end=True)
-    def end(self):
+    def __init__(self):
         pass
 
-    @Wrapper.register_event(logfile=logfile, description='Fetch something from site')
-    def fetch_from_site(self):
-        r = self.say_hello()
-        return r
+    @wrapper.register_event(logfile=logfile, description='Run method', start=True)
+    def run(self):
+        for i in range(10):
+            time.sleep(3)
+            self.checking_files()
+            self.extract_data()
+    
+    @wrapper.register_event(logfile=logfile, description='End method', end=True)
+    def end_robot(self):
+        pass
 
+    @wrapper.register_event(logfile=logfile, description='Checking files')
+    def checking_files(self):
+        pass
+
+    @wrapper.register_event(logfile=logfile, description='Extract data from file')
+    def extract_data(self):
+        pass
 
 r = Robot()
 r.run()
-r.end()
+r.end_robot()
 ```
 
 # Console output
