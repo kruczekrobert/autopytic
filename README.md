@@ -12,6 +12,7 @@ Improve your RPA python code with wrapper 🤯
 - Auto-documentation code after every robot end
 - Auto-progress with recalculation on-the-fly
 - Auto-update robot status on management system using your own REST-API
+- Simple VSC snippets to be fastest rpa in the entire word...
 ...
 ```
 
@@ -79,41 +80,32 @@ STATUS_PRINTER=false
 # Usage example
 
 ```python
-import time
 from autopytic.tools.wrapper import Wrapper
 
-wrapper = Wrapper()
-
-logfile = 'log.txt'
-wrapper.robot_path = './robots/1/'
+Robot = Wrapper(robot_path='',log_file='logs.txt')
 
 
 class Robot:
+    @Robot.register_event(description='Initialized robot')
     def __init__(self):
         pass
 
-    @wrapper.register_event(logfile=logfile, description='Run method', start=True)
+    @Robot.register_event(description='Run robot method', start=True)
     def run(self):
-        for i in range(10):
-            time.sleep(3)
-            self.checking_files()
-            self.extract_data()
-    
-    @wrapper.register_event(logfile=logfile, description='End method', end=True)
-    def end_robot(self):
         pass
 
-    @wrapper.register_event(logfile=logfile, description='Checking files')
-    def checking_files(self):
+    @Robot.register_event(description='End method', end=True)
+    def end(self):
         pass
 
-    @wrapper.register_event(logfile=logfile, description='Extract data from file')
-    def extract_data(self):
-        pass
 
 r = Robot()
-r.run()
-r.end_robot()
+
+try:
+    r.run()
+    r.end()
+except (KeyboardInterrupt, Exception) as e:
+    r.end()
 ```
 
 # Console output
@@ -140,7 +132,7 @@ ERROR_RAISE=true # Wrapper will return exception after a failed action
 ## Loop handling
 If you want to read the code based on loops easier, use in_loop (default false), to avoid too much spam in the documentation, the display loops are slightly shortened:
 ```python
-@Wrapper.register_event(logfile=logfile, description="Say hello", in_loop=True)
+@Robot.register_event(description="Say hello", in_loop=True)
 def say_hello():
         return 'hello'
 ```
@@ -180,12 +172,54 @@ python3 -m autopytic coverage
 # VisualStudio Code Snippet
 In order not to focus on writing it every time, it is worth adding a snippet to your IDE as in this case:
 ```json
+	"init_robot": {
+		"prefix": "init",
+		"body": [
+			"from autopytic.tools.wrapper import Wrapper",
+			"",
+			"Robot = Wrapper(robot_path='${1:robot_path}',log_file='logs.txt')",
+			"",
+			"",
+			"class Robot:",
+			"    @Robot.register_event(description='Initialized robot')",
+			"    def __init__(self):",
+			"        pass",
+			"",
+			"    @Robot.register_event(description='Run robot method', start=True)",
+			"    def run(self):",
+			"        pass",
+			"",
+			"    @Robot.register_event(description='End method', end=True)",
+			"    def end(self):",
+			"        pass",
+			"",
+			"",
+			"r = Robot()",
+			"",
+			"try:",
+			"    r.run()",
+			"    r.end()",
+			"except (KeyboardInterrupt, Exception) as e:",
+			"    r.end()"
+		],
+		"description": "Initialize new robot"
+	},
 	"register_event": {
 		"prefix": "register",
 		"body": [
-			"@Wrapper.register_event(logfile=logfile, description='$1')"
+			"@Robot.register_event(${1:description})"
 		],
-		"description": "Register event"
+		"description": "Register new robot event"
+	},
+	"function_with_register": {
+		"prefix": "_def",
+		"body": [
+			"@Robot.register_event(description='${1:description}')",
+			"def ${2:method_name}(self):",
+			"   pass",
+			""
+		],
+		"description": "New method with registered event"
 	}
 ```
 

@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
      name='autopytic',  
-     version='1.0',
+     version='1.1',
      author="Robert Kruczek",
      author_email="kruczeknb1@gmail.com",
      description="A autopytic package",
