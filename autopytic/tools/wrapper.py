@@ -53,7 +53,7 @@ class Event:
         return f'{self.pos}: {self.func.__name__}, {self.description}'
 
 class Wrapper:
-    def __init__(self):
+    def __init__(self, robot_path, log_file):
         self.events = []
         self.counter = 0 
         self.progress = 0
@@ -62,7 +62,8 @@ class Wrapper:
         self.avg_time = None
         self.status = None
         self.state = None
-        self.robot_path = None
+        self.robot_path = robot_path
+        self.log_file = log_file
     
     def send_status(self, response_url, response):
         if response_url:
@@ -87,6 +88,7 @@ class Wrapper:
                 self.set_progress()
                 if self.progress >= 100 and self.end_time is None:
                     self.progress = 99.00
+                    self.status = os.environ.get("STATUS_ACTIVE")
                 response = None
                 if os.environ.get("STATUS_WITH_STATE") == 'true':
                     response = {'status': self.status, 'progress': self.progress, 'state': self.shortcut_of_desc(self.state)}
@@ -153,11 +155,11 @@ class Wrapper:
         with open(self.robot_path+'.timmings', 'a+') as timmings:
             timmings.write(f'{(self.end_time - self.start_time)*1000}\n')
 
-    def log(self, logfile, func_name, args, kwargs, description, timming, trace, status):
-        with open(self.robot_path+logfile, 'a+') as log:
+    def log(self, func_name, args, kwargs, description, timming, trace, status):
+        with open(self.robot_path+self.log_file, 'a+') as log:
             log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {kwargs} | {description} | {timming}ms | {trace} \n')
 
-    def send_mail_with_exception(self, logfile, trace, subject, description):
+    def send_mail_with_exception(self, trace, subject, description):
         for mail in os.environ.get("RECIVER_EMAIL").split(","):
             mailserver = smtplib.SMTP(os.environ.get("SMTP_HOST"), os.environ.get("SMTP_PORT"))
             mailserver.ehlo()
@@ -171,8 +173,8 @@ class Wrapper:
             msg['Subject'] = subject
             msg.attach(MIMEText(str(trace) + "\nRobot exit at: " + str(description)))
 
-            attachment = MIMEApplication(open(logfile, "rb").read(), Name=str(logfile))
-            attachment['Content-Disposition'] = 'attachment; filename="{}"'.format(logfile)
+            attachment = MIMEApplication(open(self.log_file, "rb").read(), Name=str(self.log_file))
+            attachment['Content-Disposition'] = 'attachment; filename="{}"'.format(self.log_file)
             msg.attach(attachment)
             mailserver.sendmail(username, mail, msg.as_string())
             mailserver.quit()
@@ -180,8 +182,7 @@ class Wrapper:
     def get_events(self):
         return self.events
 
-    def register_event(self, description, logfile, in_loop=None, start=None, end=None):
-        print(str(self.robot_path))
+    def register_event(self, description, in_loop=None, start=None, end=None):
         env_path = Path(str(self.robot_path)) / ".pytic"
         load_dotenv(dotenv_path=env_path)
         def decorator(function):
@@ -212,7 +213,7 @@ class Wrapper:
                     self.state = description
                     result = function(*args, **kwargs)
                     t2 = time.time()
-                    self.log(logfile, function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
+                    self.log(function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
                 except Exception as e:
                     if os.environ.get("DEBUG_MODE") == "true":
                         if not in_loop:
@@ -225,11 +226,11 @@ class Wrapper:
                         else:
                             print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC}")
                     if os.environ.get("SEND_EXCEPTIONS") == "true":
-                        self.send_mail_with_exception(logfile, str(e), "ROBOT EXCEPTION", description)
+                        self.send_mail_with_exception(self.log_file, str(e), "ROBOT EXCEPTION", description)
                     if os.environ.get("ERROR_RAISE") == "true":
                         raise Exception(str(e))
                     self.status = os.environ.get("STATUS_ERROR")
-                    self.log(logfile, function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
+                    self.log(function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
                 if end:
                     self.end_timmings()
                     self.progress = 100
