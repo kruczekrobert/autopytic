@@ -12,9 +12,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from threading import Thread
 import requests
+import json
 
-env_path = Path(".") / ".pytic"
-load_dotenv(dotenv_path=env_path)
 
 class bcolors:
     HEADER = '\033[95m'
@@ -54,60 +53,68 @@ class Event:
         return f'{self.pos}: {self.func.__name__}, {self.description}'
 
 class Wrapper:
-    events = []
-    counter = 0 
-    progress = 0
-    start_time = None
-    end_time = None
-    avg_time = None
-    status = None
-    state = None
-
-    @staticmethod
-    def send_status(response_url, response):
+    def __init__(self):
+        self.events = []
+        self.counter = 0 
+        self.progress = 0
+        self.start_time = None
+        self.end_time = None
+        self.avg_time = None
+        self.status = None
+        self.state = None
+        self.robot_path = None
+    
+    def send_status(self, response_url, response):
         if response_url:
             try:
-                requests.put(os.environ.get("RESPONSE_URL"), json=response)
+                requests.post(os.environ.get("RESPONSE_URL"), json=json.dumps(response))
             except:
                 print("Cannot send status - check RESPONSE_URL or network")
             
 
-    @staticmethod
-    def progress_sender():
-        while Wrapper.progress <= 101:
-            if Wrapper.status != os.environ.get("STATUS_ERROR"):
-                Wrapper.set_progress()
-                if Wrapper.progress >= 100 and Wrapper.end_time is None:
-                    Wrapper.progress = 99.00
+    def shortcut_of_desc(self, desc):
+        if desc:
+            if len(desc) > 22:
+                return str(self.state[:22])+'...'
+            else:
+                return self.state
+        else:
+            return '---'
+
+    def progress_sender(self):
+        while self.progress <= 101:
+            if self.status != os.environ.get("STATUS_ERROR"):
+                self.set_progress()
+                if self.progress >= 100 and self.end_time is None:
+                    self.progress = 99.00
                 response = None
                 if os.environ.get("STATUS_WITH_STATE") == 'true':
-                    response = {'status': Wrapper.status, 'progress': Wrapper.progress, 'state': Wrapper.state}
+                    response = {'status': self.status, 'progress': self.progress, 'state': self.shortcut_of_desc(self.state)}
                 else:
-                    response = {'status': Wrapper.status, 'progress': Wrapper.progress}
-                if Wrapper.progress >= 100:
+                    response = {'status': self.status, 'progress': self.progress}
+                if self.progress >= 100:
                     if os.environ.get("STATUS_PRINTER") == 'true':
                         print(os.environ.get("RESPONSE_URL"), response)
-                    Wrapper.send_status(os.environ.get("RESPONSE_URL"), response)
+                    self.send_status(os.environ.get("RESPONSE_URL"), response)
                     break
                     re
                 else:
                     if os.environ.get("STATUS_PRINTER") == 'true':
                         print(os.environ.get("RESPONSE_URL"), response)
-                    Wrapper.send_status(os.environ.get("RESPONSE_URL"), response)
+                    self.send_status(os.environ.get("RESPONSE_URL"), response)
             else:
-                response = {'status': Wrapper.status, 'progress': Wrapper.progress, 'state': Wrapper.state}
+                response = {'status': self.status, 'progress': self.progress, 'state': self.shortcut_of_desc(self.state)}
                 if os.environ.get("STATUS_PRINTER") == 'true':
                     print(os.environ.get("RESPONSE_URL"), response)
-                Wrapper.send_status(os.environ.get("RESPONSE_URL"), response)
+                self.send_status(os.environ.get("RESPONSE_URL"), response)
                 break
             time.sleep(float(os.environ.get("STATUS_REFRESH_RATE")))
               
 
-    @staticmethod
-    def calc_avarage_time(recalc=None):
+    def calc_avarage_time(self, recalc=None):
         avg = 0
         re_avg = 0
-        with open(".timmings", 'r') as timmings:
+        with open(self.robot_path+".timmings", 'r+') as timmings:
             try:
                 lines = [float(line.strip()) for line in timmings]
     
@@ -115,52 +122,42 @@ class Wrapper:
                     avg+=timming
 
                 if len(lines) < 1:
-                    Wrapper.avg_time = float(os.environ.get("DEFAULT_EXECUTE_TIME"))
+                    self.avg_time = float(os.environ.get("DEFAULT_EXECUTE_TIME"))
                 else:
                     if recalc:
                         re_avg=recalc+avg
-                        Wrapper.avg_time = re_avg/(len(lines)+1)
+                        self.avg_time = re_avg/(len(lines)+1)
                     else:
-                        Wrapper.avg_time = avg/len(lines)
-            except:
-                Wrapper.avg_time = float(os.environ.get("DEFAULT_EXECUTE_TIME"))
+                        self.avg_time = avg/len(lines)
+            except Exception as e:
+                self.avg_time = float(os.environ.get("DEFAULT_EXECUTE_TIME"))
 
+    def start_timmings(self):
+        self.start_time = time.time()
 
-    @staticmethod
-    def start_timmings():
-        Wrapper.start_time = time.time()
-
-    @staticmethod
-    def set_progress():
-        if Wrapper.progress != 100:
-            if Wrapper.status != os.environ.get("STATUS_ERROR"):
-                left_time = (time.time() - Wrapper.start_time) * 1000
-                Wrapper.calc_avarage_time(recalc=(time.time() - Wrapper.start_time))
-                progress = abs(round((left_time / Wrapper.avg_time) * 100, 2))
+    def set_progress(self):
+        if self.progress != 100:
+            if self.status != os.environ.get("STATUS_ERROR"):
+                left_time = (time.time() - self.start_time) * 1000
+                self.calc_avarage_time(recalc=(time.time() - self.start_time))
+                progress = abs(round((left_time / self.avg_time) * 100, 2))
                 if progress >= 100:
-                    Wrapper.progress = 100
-                    Wrapper.status = os.environ.get("STATUS_COMPLETED")
+                    self.progress = 100
+                    self.status = os.environ.get("STATUS_COMPLETED")
                 else:
-                    Wrapper.progress = progress
-                    Wrapper.status = os.environ.get("STATUS_ACTIVE")
+                    self.progress = progress
+                    self.status = os.environ.get("STATUS_ACTIVE")
 
-    @staticmethod
-    def end_timmings():
-        Wrapper.end_time = time.time()
-        with open('.timmings', 'a') as timmings:
-            timmings.write(f'{(Wrapper.end_time - Wrapper.start_time)*1000}\n')
+    def end_timmings(self):
+        self.end_time = time.time()
+        with open(self.robot_path+'.timmings', 'a+') as timmings:
+            timmings.write(f'{(self.end_time - self.start_time)*1000}\n')
 
-    @staticmethod
-    def log(logfile, func_name, args, kwargs, description, timming, trace, status):
-        with open(logfile, 'a') as log:
-            try:
-                log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {kwargs} | {description} | {timming}ms | {trace} \n')
-            except:
-                pass
+    def log(self, logfile, func_name, args, kwargs, description, timming, trace, status):
+        with open(self.robot_path+logfile, 'a+') as log:
+            log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {kwargs} | {description} | {timming}ms | {trace} \n')
 
-
-    @staticmethod
-    def send_mail_with_exception(logfile, trace, subject, description):
+    def send_mail_with_exception(self, logfile, trace, subject, description):
         for mail in os.environ.get("RECIVER_EMAIL").split(","):
             mailserver = smtplib.SMTP(os.environ.get("SMTP_HOST"), os.environ.get("SMTP_PORT"))
             mailserver.ehlo()
@@ -180,24 +177,25 @@ class Wrapper:
             mailserver.sendmail(username, mail, msg.as_string())
             mailserver.quit()
 
-    @staticmethod
-    def get_events():
-        return Wrapper.events
+    def get_events(self):
+        return self.events
 
-    @staticmethod
-    def register_event(description, logfile, in_loop=None, start=None, end=None):
+    def register_event(self, description, logfile, in_loop=None, start=None, end=None):
+        print(str(self.robot_path))
+        env_path = Path(str(self.robot_path)) / ".pytic"
+        load_dotenv(dotenv_path=env_path)
         def decorator(function):
             def wrapper(*args, **kwargs):
                 thread = None
-                if not Event.func_is_in(function, Wrapper.events) or not Event.last_is_loop(function, Wrapper.events, Wrapper.counter):
-                    Wrapper.events.append(Event(function, description, Wrapper.counter, in_loop))
-                    Wrapper.counter += 1
+                if not Event.func_is_in(function, self.events) or not Event.last_is_loop(function, self.events, self.counter):
+                    self.events.append(Event(function, description, self.counter, in_loop))
+                    self.counter += 1
                 result = None
                 if start:
-                    Wrapper.start_timmings()
-                    Wrapper.calc_avarage_time()
-                    Wrapper.progress = 0
-                    thread = Thread(target=Wrapper.progress_sender)
+                    self.start_timmings()
+                    self.calc_avarage_time()
+                    self.progress = 0
+                    thread = Thread(target=self.progress_sender)
                     thread.start()
                 try:
                     if os.environ.get("DEBUG_MODE") == "true":
@@ -211,10 +209,10 @@ class Wrapper:
                         else:
                             print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
                     t1 = time.time()
-                    Wrapper.state = description
+                    self.state = description
                     result = function(*args, **kwargs)
                     t2 = time.time()
-                    Wrapper.log(logfile, function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
+                    self.log(logfile, function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
                 except Exception as e:
                     if os.environ.get("DEBUG_MODE") == "true":
                         if not in_loop:
@@ -227,28 +225,27 @@ class Wrapper:
                         else:
                             print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC}")
                     if os.environ.get("SEND_EXCEPTIONS") == "true":
-                        Wrapper.send_mail_with_exception(logfile, str(e), "ROBOT EXCEPTION", description)
+                        self.send_mail_with_exception(logfile, str(e), "ROBOT EXCEPTION", description)
                     if os.environ.get("ERROR_RAISE") == "true":
                         raise Exception(str(e))
-                    Wrapper.status = os.environ.get("STATUS_ERROR")
-                    Wrapper.log(logfile, function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
+                    self.status = os.environ.get("STATUS_ERROR")
+                    self.log(logfile, function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
                 if end:
-                    Wrapper.end_timmings()
-                    Wrapper.progress = 100
-                    Wrapper.status = os.environ.get("STATUS_COMPLETED")
-                    Wrapper.build_docs()
+                    self.end_timmings()
+                    self.progress = 100
+                    self.status = os.environ.get("STATUS_COMPLETED")
+                    self.build_docs()
                 return result
             return wrapper
         return decorator
 
-    @staticmethod
-    def build_docs():
-        with open("docs.txt", 'w') as docs:
+    def build_docs(self):
+        with open(self.robot_path+"docs.txt", 'w+') as docs:
             docs.write("")
-        for i, event in enumerate(Wrapper.events):
+        for i, event in enumerate(self.events):
             if event.loop:
-                with open("docs.txt", "a") as docs:
+                with open(self.robot_path+"docs.txt", "a+") as docs:
                     docs.write(f'Step {event.pos} -> use function {event.func.__name__} in loop to do {event.description}\n')
             else:
-                with open("docs.txt", "a") as docs:
+                with open(self.robot_path+"docs.txt", "a+") as docs:
                     docs.write(f'Step {event.pos} -> use function {event.func.__name__} to do {event.description}\n')
