@@ -6,13 +6,16 @@ Improve your RPA python code with wrapper 🤯
 
 ```text
 - Easy to use on existing scripts
-- Send email notifications on exception
-- Auto-timmings
-- Auto-logging 
+- Auto-emails notifications at exception
+- Auto-handling statuses on base worflow
+- Auto-generate code timmings and save into file
+- Auto-generate logs writer base on used functions workflow
 - Auto-documentation code after every robot end
 - Auto-progress with recalculation on-the-fly
 - Auto-update robot status on management system using your own REST-API
-- Simple VSC snippets to be fastest rpa in the entire word...
+- Auto-uploading logs into server using your own REST-API
+- Auto-fetch config json from server using your own REST-API
+- Simple VSC snippets to be fastest RPA Developers in the entire word...
 ...
 ```
 
@@ -71,10 +74,22 @@ STATUS_ACTIVE=Aktywny
 STATUS_COMPLETED=Zakonczony
 # Error status name for response
 STATUS_ERROR=Krytyczny
+# Disalbled status name for response
+STATUS_DISABLED=Wyłączony
 # Returning together with the status of the place where the robot is located
 STATUS_WITH_STATE=false
 # This form is helpful for previewing progress in the console :: Turn on-off
 STATUS_PRINTER=false
+
+# Logs Settings
+
+# Address to upload logs into server
+UPLOAD_LOGS_URL=
+
+# Config Settings
+
+# Addres to fetch json config from server
+GET_CONFIG_URL=
 ```
 
 # Usage example
@@ -85,7 +100,7 @@ from autopytic.tools.wrapper import Wrapper
 Robot = Wrapper(robot_path='',log_file='logs.txt')
 
 
-class Robot:
+class _Robot:
     @Robot.register_event(description='Initialized robot')
     def __init__(self):
         pass
@@ -99,7 +114,7 @@ class Robot:
         pass
 
 
-r = Robot()
+r = _Robot()
 
 try:
     r.run()
