@@ -13,7 +13,7 @@ def _check_file_coverage(f, lines):
     for i, line in enumerate(lines):
         if "def" in line.strip():
             def_count += 1
-            if "@Wrapper.register_event" not in lines[i-1] or "#" in lines[i-1].strip()[:15]:
+            if ".register_event" not in lines[i-1] or "#" in lines[i-1].strip()[:15]:
                 print(f'{bcolors.FAIL}[FAIL] {bcolors.ENDC}{f} line:{i} {line.strip()[:-1].replace("def ", "")} does not have event registration')
             else:
                 print(f'{bcolors.OKGREEN}[PASS] {bcolors.ENDC}{f} line:{i} {line.strip()[:-1].replace("def ", "")}')

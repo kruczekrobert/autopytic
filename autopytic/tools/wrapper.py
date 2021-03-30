@@ -64,13 +64,22 @@ class Wrapper:
         self.state = None
         self.robot_path = robot_path
         self.log_file = log_file
+        self.config = None
+
+    def get_config(self):
+        if os.environ.get("GET_CONFIG_URL"):
+            try:
+                r = requests.get(os.environ.get("GET_CONFIG_URL"))
+                self.config = r.json()
+            except:
+                print("Cannot fetch config from server")
     
     def send_status(self, response_url, response):
         if response_url:
             try:
                 requests.post(os.environ.get("RESPONSE_URL"), json=json.dumps(response))
             except:
-                print("Cannot send status - check RESPONSE_URL or network")
+                print("Cannot send status")
             
 
     def shortcut_of_desc(self, desc):
@@ -139,7 +148,7 @@ class Wrapper:
 
     def set_progress(self):
         if self.progress != 100:
-            if self.status != os.environ.get("STATUS_ERROR"):
+            if self.status != os.environ.get("STATUS_ERROR") and self.status != os.environ.get("STATUS_DISABLED"):
                 left_time = (time.time() - self.start_time) * 1000
                 self.calc_avarage_time(recalc=(time.time() - self.start_time))
                 progress = abs(round((left_time / self.avg_time) * 100, 2))
@@ -159,6 +168,14 @@ class Wrapper:
         with open(self.robot_path+self.log_file, 'a+') as log:
             log.write(f' {status} | {str(datetime.now())} | {func_name} | {args} | {kwargs} | {description} | {timming}ms | {trace} \n')
 
+    def send_logs(self):
+        if os.environ.get("UPLOAD_LOGS_URL"):
+            try:
+                files = {'file': open(self.robot_path+self.log_file, 'rb')}
+                requests.post(os.environ.get("UPLOAD_LOGS_URL"), files=files)
+            except:
+                print("Cannot upload logs")
+
     def send_mail_with_exception(self, trace, subject, description):
         for mail in os.environ.get("RECIVER_EMAIL").split(","):
             mailserver = smtplib.SMTP(os.environ.get("SMTP_HOST"), os.environ.get("SMTP_PORT"))
@@ -170,10 +187,11 @@ class Wrapper:
             msg = MIMEMultipart()
             msg['From'] = os.environ.get("SENDER_EMAIL")
             msg['To'] = mail
-            msg['Subject'] = subject
-            msg.attach(MIMEText(str(trace) + "\nRobot exit at: " + str(description)))
+            msg['Subject'] = f'{subject} - [{self.robot_path}]'
+            txt = f'Robot failed at: {description}\n\nPython exception: {str(trace)}'
+            msg.attach(MIMEText(txt))
 
-            attachment = MIMEApplication(open(self.log_file, "rb").read(), Name=str(self.log_file))
+            attachment = MIMEApplication(open(self.robot_path+self.log_file, "rb").read(), Name=str(self.robot_path+self.log_file))
             attachment['Content-Disposition'] = 'attachment; filename="{}"'.format(self.log_file)
             msg.attach(attachment)
             mailserver.sendmail(username, mail, msg.as_string())
@@ -182,23 +200,43 @@ class Wrapper:
     def get_events(self):
         return self.events
 
+    def info(self, text):
+        print(f"{bcolors.WARNING}[ROBOT]{bcolors.ENDC} {text}{bcolors.ENDC}")
+
     def register_event(self, description, in_loop=None, start=None, end=None):
         env_path = Path(str(self.robot_path)) / ".pytic"
         load_dotenv(dotenv_path=env_path)
         def decorator(function):
             def wrapper(*args, **kwargs):
+                if not end and not start:
+                    self.state = description
                 thread = None
                 if not Event.func_is_in(function, self.events) or not Event.last_is_loop(function, self.events, self.counter):
                     self.events.append(Event(function, description, self.counter, in_loop))
                     self.counter += 1
                 result = None
                 if start:
+                    self.get_config()
+                    time.sleep(2)
                     self.start_timmings()
                     self.calc_avarage_time()
                     self.progress = 0
                     thread = Thread(target=self.progress_sender)
                     thread.start()
                 try:
+                    if os.environ.get("DEBUG_MODE") == "true":
+                        if not in_loop:
+                            print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.ENDC} {description}{bcolors.ENDC} | {function.__name__}{args}{kwargs} ")
+                        else:
+                            print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.OKCYAN} [{in_loop}] {bcolors.ENDC}{description}{bcolors.ENDC} | {function.__name__}{args}{kwargs} ")
+                    else:
+                        if not in_loop:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.ENDC} {description}{bcolors.ENDC}")
+                        else:
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC} {description}{bcolors.ENDC}")
+                    t1 = time.time()
+                    result = function(*args, **kwargs)
+                    t2 = time.time()
                     if os.environ.get("DEBUG_MODE") == "true":
                         if not in_loop:
                             print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC} | {function.__name__}{args}{kwargs} ")
@@ -209,10 +247,6 @@ class Wrapper:
                             print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
                         else:
                             print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC} {description}{bcolors.OKGREEN} [✓] {bcolors.ENDC}")
-                    t1 = time.time()
-                    self.state = description
-                    result = function(*args, **kwargs)
-                    t2 = time.time()
                     self.log(function.__name__, args, kwargs, description, (t2 - t1) * 1000, " - ", "PASS")
                 except Exception as e:
                     if os.environ.get("DEBUG_MODE") == "true":
@@ -222,20 +256,27 @@ class Wrapper:
                             print(f"{bcolors.WARNING}[DEBUG MODE]{bcolors.OKCYAN} [{in_loop}] {bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC} | {function.__name__}{args}{kwargs}, {str(e)}")
                     else:
                         if not in_loop:
-                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC}")
+                            print(f"{bcolors.OKBLUE}[ROBOT] {bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC}")
                         else:
-                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC}{description}{bcolors.FAIL} [x] {bcolors.ENDC}")
+                            print(f"{bcolors.OKBLUE}[ROBOT]{bcolors.OKCYAN} [{in_loop}]{bcolors.ENDC} {description}{bcolors.FAIL} [x] {bcolors.ENDC}")
+                    self.status = os.environ.get("STATUS_ERROR")
+                    self.progress = 0
                     if os.environ.get("SEND_EXCEPTIONS") == "true":
-                        self.send_mail_with_exception(self.log_file, str(e), "ROBOT EXCEPTION", description)
+                        self.send_mail_with_exception(str(e), "ROBOT EXCEPTION", description)
                     if os.environ.get("ERROR_RAISE") == "true":
                         raise Exception(str(e))
                     self.status = os.environ.get("STATUS_ERROR")
+                    self.progress = 0
                     self.log(function.__name__, args, kwargs, description, " - ", str(e), "FAIL")
                 if end:
-                    self.end_timmings()
-                    self.progress = 100
-                    self.status = os.environ.get("STATUS_COMPLETED")
-                    self.build_docs()
+                    if self.status == os.environ.get("STATUS_ERROR"):
+                        self.progress = 0
+                    else:
+                        self.end_timmings()
+                        self.progress = 100
+                        self.status = os.environ.get("STATUS_COMPLETED")
+                        self.build_docs()
+                    self.send_logs()
                 return result
             return wrapper
         return decorator
