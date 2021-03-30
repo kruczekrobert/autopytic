@@ -108,7 +108,6 @@ class Wrapper:
                         print(os.environ.get("RESPONSE_URL"), response)
                     self.send_status(os.environ.get("RESPONSE_URL"), response)
                     break
-                    re
                 else:
                     if os.environ.get("STATUS_PRINTER") == 'true':
                         print(os.environ.get("RESPONSE_URL"), response)
